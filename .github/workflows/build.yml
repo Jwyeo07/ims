@@ -22,7 +22,7 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # 🌟 [핵심 변경] Gradle SDK Manager가 원격 다운로드를 시도하지 않도록 완전한 오프라인 SDK 뼈대를 구축합니다.
+      # 🌟 [네임스페이스 파싱 에러 수정 완료] 정식 규격에 맞춘 package.xml 주입 단계
       - name: Mock Android 33 SDK and Force Bypass Download
         run: |
           MOCK_PLATFORM_DIR="$ANDROID_HOME/platforms/android-33"
@@ -43,16 +43,25 @@ jobs:
           echo "Platform.Version=13" >> "$MOCK_PLATFORM_DIR/source.properties"
           echo "AndroidVersion.ApiLevel=33" >> "$MOCK_PLATFORM_DIR/source.properties"
           
-          # 3. 🔥 [가장 중요] SDK Manager가 업데이트나 다운로드를 건너뛰도록 원격 검증 통과용 임의의 package.xml 주입
+          # 3. 🔥 [네임스페이스 교정] SDK Manager가 정상 인식하도록 xmlns 구조를 정식 스케일로 수정합니다.
           cat << 'EOF' > "$MOCK_PLATFORM_DIR/package.xml"
-          <?xml version="1.0" encoding="UTF-8" standalone="yes"?><ns2:repository xmlns:ns2="http://android.com" xmlns:ns3="http://android.com" xmlns:ns4="http://android.com" xmlns:ns5="http://android.com" xmlns:ns6="http://android.com" xmlns:ns7="http://android.com" xmlns:ns8="http://android.com" xmlns:ns9="http://android.com" xmlns:ns10="http://android.com" xmlns:ns11="http://android.com" xmlns:ns12="http://android.com" xmlns:ns13="http://android.com" xmlns:ns14="http://android.com">
-          <localPackage path="platforms;android-33" obsolete="false"><type-details xmlns:xsi="http://w3.org" xsi:type="ns12:platformDetailsType"><api-level>33</api-level><codename></codename><layoutlib api="60"/></type-details><revision><major>3</major></revision><display-name>Android SDK Platform 33</display-name></localPackage></ns2:repository>
+          <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+          <ns3:sdk-repository xmlns:ns2="http://schemas.android.com/repository/android/common/01" xmlns:ns3="http://schemas.android.com/sdk/android/repo/repository2/01" xmlns:ns4="http://schemas.android.com/sdk/android/repo/sys-img2/01" xmlns:ns5="http://schemas.android.com/sdk/android/repo/addon2/01">
+              <localPackage path="platforms;android-33" obsolete="false">
+                  <type-details xmlns:xsi="http://w3.org" xsi:type="ns3:platformDetailsType">
+                      <api-level>33</api-level>
+                      <codename></codename>
+                      <layoutlib api="60"/>
+                  </type-details>
+                  <revision><major>3</major></revision>
+                  <display-name>Android SDK Platform 33</display-name>
+              </localPackage>
+          </ns3:sdk-repository>
           EOF
           
           # 4. 컴파일에 함께 요구되는 프레임워크 옵션 파일 최소 빈 구조 결합
           touch "$MOCK_PLATFORM_DIR/framework.aidl"
 
-      # 🌟 --offline 옵션을 제거하여 8.2.0 및 코틀린 플러그인은 인터넷에서 정상 수급합니다.
       - name: Build APK with Gradle
         run: ./gradlew assembleDebug --no-daemon
 
