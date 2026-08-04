@@ -42,6 +42,10 @@ android {
     }
     kotlinOptions {
         jvmTarget = '1.8'
+        // 🌟 [핵심 변경] Kotlin 컴파일러가 시스템 API 파일을 최우선하도록 Xbootclasspath 바인딩 추가
+        freeCompilerArgs += [
+            "-Xbootclasspath=${projectDir}/libs/ImsMediaFramework.jar"
+        ]
     }
     externalNativeBuild {
         cmake {
@@ -61,27 +65,11 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
 }
 
-// 🌟 [핵심 수정] Kotlin 및 Java 컴파일러 내부의 클래스패스 최우선순위 강제 조정 스크립트
+// 🌟 [추가] Java 컴파일 단계용 부트클래스패스 최우선 설정 강제 바인딩
 allprojects {
-    tasks.all { task ->
-        // Java 컴파일러 가로채기
-        if (task instanceof JavaCompile) {
-            task.doFirst {
-                def customJar = files("${projectDir}/libs/ImsMediaFramework.jar")
-                task.options.bootstrapClasspath = customJar + (task.options.bootstrapClasspath ?: files())
-                task.classpath = customJar + task.classpath
-            }
-        }
-        // Kotlin 컴파일러 가로채기 (클래스 속성을 직접 리스트 결합으로 우회)
-        if (task.class.name.contains("KotlinCompile")) {
-            task.doFirst {
-                def customJar = files("${projectDir}/libs/ImsMediaFramework.jar")
-                if (task.hasProperty('libraries')) {
-                    task.libraries.setFrom(customJar, task.libraries)
-                } else if (task.hasProperty('classpath')) {
-                    task.classpath = customJar + task.classpath
-                }
-            }
+    gradle.projectsEvaluated {
+        tasks.withType(JavaCompile).configureEach {
+            options.bootstrapClasspath = files("${projectDir}/libs/ImsMediaFramework.jar") + (options.bootstrapClasspath ?: files())
         }
     }
 }
