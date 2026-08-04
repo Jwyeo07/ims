@@ -18,14 +18,17 @@ android {
     }
 
     // 🌟 [추가] 순정 SDK보다 libs의 framework jar가 먼저 참조되도록 우선순위 변경
+// Java 및 Kotlin 컴파일러 설정 수정
     gradle.projectsEvaluated {
         tasks.withType(JavaCompile).configureEach {
             options.bootstrapClasspath = files("${projectDir}/libs/ImsMediaFramework.jar") + options.bootstrapClasspath
         }
+    // 'classpath'를 'libraries'로 변경하여 해결
         tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-            compilerOptions.classpath.from(files("${projectDir}/libs/ImsMediaFramework.jar"))
+            libraries.setFrom(files("${projectDir}/libs/ImsMediaFramework.jar", libraries))
         }
     }
+
 
     sourceSets {
         main {
