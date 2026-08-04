@@ -42,10 +42,6 @@ android {
     }
     kotlinOptions {
         jvmTarget = '1.8'
-        // 🌟 [핵심 변경] Kotlin 컴파일러가 시스템 API 파일을 최우선하도록 Xbootclasspath 바인딩 추가
-        freeCompilerArgs += [
-            "-Xbootclasspath=${projectDir}/libs/ImsMediaFramework.jar"
-        ]
     }
     externalNativeBuild {
         cmake {
@@ -65,11 +61,18 @@ dependencies {
     testImplementation 'junit:junit:4.13.2'
 }
 
-// 🌟 [추가] Java 컴파일 단계용 부트클래스패스 최우선 설정 강제 바인딩
-allprojects {
-    gradle.projectsEvaluated {
-        tasks.withType(JavaCompile).configureEach {
-            options.bootstrapClasspath = files("${projectDir}/libs/ImsMediaFramework.jar") + (options.bootstrapClasspath ?: files())
-        }
+// 🌟 [최종 해결 플러그인] Android SDK 순정 Jar보다 내부 프레임워크 순위를 높여 코틀린 컴파일 문제를 해결합니다.
+afterEvaluate {
+    def customJar = files("${projectDir}/libs/ImsMediaFramework.jar")
+    
+    // 1. 자바 컴파일러 가로채기
+    tasks.withType(JavaCompile).configureEach {
+        options.bootstrapClasspath = customJar + (options.bootstrapClasspath ?: files())
+    }
+    
+    // 2. 코틀린 컴파일러 빌드 환경(Classpath) 강제 우회 가로채기
+    tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach { task ->
+        // 최신 코틀린 플러그인의 컴파일 환경 배열 맨 앞에 강제 배치
+        task.setClasspath(customJar + task.getClasspath())
     }
 }
