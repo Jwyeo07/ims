@@ -17,19 +17,6 @@ android {
         versionName "1.0"
     }
 
-    // 🌟 [추가] 순정 SDK보다 libs의 framework jar가 먼저 참조되도록 우선순위 변경
-// Java 및 Kotlin 컴파일러 설정 수정
-    gradle.projectsEvaluated {
-        tasks.withType(JavaCompile).configureEach {
-            options.bootstrapClasspath = files("${projectDir}/libs/ImsMediaFramework.jar") + options.bootstrapClasspath
-        }
-    // 'classpath'를 'libraries'로 변경하여 해결
-        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-            libraries.setFrom(files("${projectDir}/libs/ImsMediaFramework.jar", libraries))
-        }
-    }
-
-
     sourceSets {
         main {
             jniLibs {
@@ -68,9 +55,33 @@ dependencies {
     if (platformApiJar != null) {
         compileOnly files(platformApiJar, 'libs/ImsMediaFramework.jar')
     } else {
-        // 이 부분에서 컴파일 경로에 파일들이 들어가지만 순정 SDK에 순위가 밀리는 현상을 위 🌟 추가 코드로 해결합니다.
         compileOnly fileTree(dir: 'libs', include: '*.jar')
     }
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.1'
     testImplementation 'junit:junit:4.13.2'
+}
+
+// 🌟 [핵심 수정] Kotlin 및 Java 컴파일러 내부의 클래스패스 최우선순위 강제 조정 스크립트
+allprojects {
+    tasks.all { task ->
+        // Java 컴파일러 가로채기
+        if (task instanceof JavaCompile) {
+            task.doFirst {
+                def customJar = files("${projectDir}/libs/ImsMediaFramework.jar")
+                task.options.bootstrapClasspath = customJar + (task.options.bootstrapClasspath ?: files())
+                task.classpath = customJar + task.classpath
+            }
+        }
+        // Kotlin 컴파일러 가로채기 (클래스 속성을 직접 리스트 결합으로 우회)
+        if (task.class.name.contains("KotlinCompile")) {
+            task.doFirst {
+                def customJar = files("${projectDir}/libs/ImsMediaFramework.jar")
+                if (task.hasProperty('libraries')) {
+                    task.libraries.setFrom(customJar, task.libraries)
+                } else if (task.hasProperty('classpath')) {
+                    task.classpath = customJar + task.classpath
+                }
+            }
+        }
+    }
 }
