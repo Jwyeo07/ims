@@ -15,7 +15,8 @@ android {
         targetSdk 33
         versionCode 33
         versionName "1.0"
-    }
+
+        }
     sourceSets {
         main {
             jniLibs {
@@ -52,9 +53,16 @@ android {
 
 dependencies {
     if (platformApiJar != null) {
+        // Host-side regression tests need the same private platform API
+        // surface as the platform_apis Soong build. Supply a full platform
+        // stub/classes jar without replacing the checked-in compatibility jar.
         compileOnly files(platformApiJar, 'libs/ImsMediaFramework.jar')
     } else {
         compileOnly fileTree(dir: 'libs', include: '*.jar')
+    }
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.1'
+    testImplementation 'junit:junit:4.13.2'
+}
     }
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.1'
     testImplementation 'junit:junit:4.13.2'
