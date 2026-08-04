@@ -22,24 +22,37 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # 🌟 [핵심 추가] 순정 Android 33 SDK의 android.jar를 커스텀 프레임워크 파일로 강제 치환
-      - name: Inject Custom Framework to Android SDK
+      # 🌟 [핵심 변경] 순정 SDK가 자동 다운로드되지 않도록 미리 리포지토리의 커스텀 jar로 격리 환경을 선언합니다.
+      - name: Mock Android 33 SDK using repository files
         run: |
-          mkdir -p $ANDROID_HOME/platforms/android-33
-          if [ -f "app/libs/ImsMediaFramework.jar" ]; then
-            cp app/libs/ImsMediaFramework.jar $ANDROID_HOME/platforms/android-33/android.jar
-            echo "Successfully hijacked Android 33 SDK stub with ImsMediaFramework.jar."
+          MOCK_PLATFORM_DIR="$ANDROID_HOME/platforms/android-33"
+          mkdir -p "$MOCK_PLATFORM_DIR"
+          
+          # 순정 SDK 대신 리포지토리 안의 가공된 android.jar를 이 자리에 강제 복사합니다.
+          if [ -f "app/libs/android.jar" ]; then
+            cp app/libs/android.jar "$MOCK_PLATFORM_DIR/android.jar"
+            echo "Successfully deployed custom android.jar from repository to SDK environment."
           else
-            echo "Error: app/libs/ImsMediaFramework.jar not found!"
+            echo "Error: app/libs/android.jar not found in your repository!"
             exit 1
           fi
+          
+          # Gradle SDK 매니저가 유효한 플랫폼 디렉토리로 착각하도록 의도적으로 메타데이터 뼈대를 주입합니다.
+          echo "pkg.type=sdk" > "$MOCK_PLATFORM_DIR/source.properties"
+          echo "pkg.revision=3" >> "$MOCK_PLATFORM_DIR/source.properties"
+          echo "Platform.Version=13" >> "$MOCK_PLATFORM_DIR/source.properties"
+          echo "AndroidVersion.ApiLevel=33" >> "$MOCK_PLATFORM_DIR/source.properties"
+          
+          # Android 빌드 환경에 필요한 최소한의 빈 빌드 도구 구조 생성
+          mkdir -p "$ANDROID_HOME/build-tools/33.0.0"
+          touch "$ANDROID_HOME/build-tools/33.0.0/source.properties"
 
-      - name: Build APK with Gradle
-        run: ./gradlew assembleDebug
+      # 🌟 [오프라인 모드 강제] 구글 저장소로 SDK를 다시 다운로드받으러 가는 길을 완전 차단합니다.
+      - name: Build APK with Off-line Mode
+        run: ./gradlew assembleDebug --offline --no-daemon
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
-
