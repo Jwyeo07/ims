@@ -16,7 +16,6 @@ android {
         versionCode 33
         versionName "1.0"
     }
-
     sourceSets {
         main {
             jniLibs {
@@ -59,23 +58,4 @@ dependencies {
     }
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.1'
     testImplementation 'junit:junit:4.13.2'
-}
-
-// 🌟 [최종 우회 스크립트] AGP가 참조하는 시스템 SDK 파일의 위치 자체를 조작합니다.
-// 자바와 코틀린 플러그인 모두가 참조하는 android.jar 경로의 맨 앞에 커스텀 프레임워크를 강제 병합합니다.
-afterEvaluate {
-    def customJar = file("${projectDir}/libs/ImsMediaFramework.jar")
-    if (customJar.exists()) {
-        // AGP 컴파일 파이프라인의 핵심 타깃 클래스 패스를 가로챕니다.
-        android.applicationVariants.all { variant ->
-            variant.getCompileConfiguration().resolutionStrategy.eachDependency { details ->
-                // 의존성 분석 시점에 내부 API 컴파일 경로 최적화 우선순위 부여
-            }
-        }
-        
-        // 빌드 타깃의 부트 클래스패스에 직접 순서를 조작하여 android.jar보다 앞으로 이동시킵니다.
-        def bootstrapFiles = files(customJar) + files(android.getBootClasspath())
-        android.getBootClasspath().clear()
-        android.getBootClasspath().addAll(bootstrapFiles.getFiles())
-    }
 }
