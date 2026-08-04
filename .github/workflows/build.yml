@@ -22,34 +22,39 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      # 🌟 [핵심 변경] 순정 SDK가 자동 다운로드되지 않도록 미리 리포지토리의 커스텀 jar로 격리 환경을 선언합니다.
-      - name: Mock Android 33 SDK using repository files
+      # 🌟 [핵심 변경] Gradle SDK Manager가 원격 다운로드를 시도하지 않도록 완전한 오프라인 SDK 뼈대를 구축합니다.
+      - name: Mock Android 33 SDK and Force Bypass Download
         run: |
           MOCK_PLATFORM_DIR="$ANDROID_HOME/platforms/android-33"
           mkdir -p "$MOCK_PLATFORM_DIR"
           
-          # 순정 SDK 대신 리포지토리 안의 가공된 android.jar를 이 자리에 강제 복사합니다.
+          # 1. 원격 파일 대신 프로젝트 libs 안의 커스텀 android.jar를 로컬 SDK 코어로 배치
           if [ -f "app/libs/android.jar" ]; then
             cp app/libs/android.jar "$MOCK_PLATFORM_DIR/android.jar"
             echo "Successfully deployed custom android.jar from repository to SDK environment."
           else
-            echo "Error: app/libs/android.jar not found in your repository!"
+            echo "Error: app/libs/android.jar not found!"
             exit 1
           fi
           
-          # Gradle SDK 매니저가 유효한 플랫폼 디렉토리로 착각하도록 의도적으로 메타데이터 뼈대를 주입합니다.
+          # 2. SDK 버전 인식을 위한 속성 뼈대 선언
           echo "pkg.type=sdk" > "$MOCK_PLATFORM_DIR/source.properties"
           echo "pkg.revision=3" >> "$MOCK_PLATFORM_DIR/source.properties"
           echo "Platform.Version=13" >> "$MOCK_PLATFORM_DIR/source.properties"
           echo "AndroidVersion.ApiLevel=33" >> "$MOCK_PLATFORM_DIR/source.properties"
           
-          # Android 빌드 환경에 필요한 최소한의 빈 빌드 도구 구조 생성
-          mkdir -p "$ANDROID_HOME/build-tools/33.0.0"
-          touch "$ANDROID_HOME/build-tools/33.0.0/source.properties"
+          # 3. 🔥 [가장 중요] SDK Manager가 업데이트나 다운로드를 건너뛰도록 원격 검증 통과용 임의의 package.xml 주입
+          cat << 'EOF' > "$MOCK_PLATFORM_DIR/package.xml"
+          <?xml version="1.0" encoding="UTF-8" standalone="yes"?><ns2:repository xmlns:ns2="http://android.com" xmlns:ns3="http://android.com" xmlns:ns4="http://android.com" xmlns:ns5="http://android.com" xmlns:ns6="http://android.com" xmlns:ns7="http://android.com" xmlns:ns8="http://android.com" xmlns:ns9="http://android.com" xmlns:ns10="http://android.com" xmlns:ns11="http://android.com" xmlns:ns12="http://android.com" xmlns:ns13="http://android.com" xmlns:ns14="http://android.com">
+          <localPackage path="platforms;android-33" obsolete="false"><type-details xmlns:xsi="http://w3.org" xsi:type="ns12:platformDetailsType"><api-level>33</api-level><codename></codename><layoutlib api="60"/></type-details><revision><major>3</major></revision><display-name>Android SDK Platform 33</display-name></localPackage></ns2:repository>
+          EOF
+          
+          # 4. 컴파일에 함께 요구되는 프레임워크 옵션 파일 최소 빈 구조 결합
+          touch "$MOCK_PLATFORM_DIR/framework.aidl"
 
-      # 🌟 [오프라인 모드 강제] 구글 저장소로 SDK를 다시 다운로드받으러 가는 길을 완전 차단합니다.
-      - name: Build APK with Off-line Mode
-        run: ./gradlew assembleDebug --offline --no-daemon
+      # 🌟 --offline 옵션을 제거하여 8.2.0 및 코틀린 플러그인은 인터넷에서 정상 수급합니다.
+      - name: Build APK with Gradle
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
