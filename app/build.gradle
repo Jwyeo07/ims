@@ -15,8 +15,18 @@ android {
         targetSdk 33
         versionCode 33
         versionName "1.0"
+    }
 
+    // 🌟 [추가] 순정 SDK보다 libs의 framework jar가 먼저 참조되도록 우선순위 변경
+    gradle.projectsEvaluated {
+        tasks.withType(JavaCompile).configureEach {
+            options.bootstrapClasspath = files("${projectDir}/libs/ImsMediaFramework.jar") + options.bootstrapClasspath
         }
+        tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+            compilerOptions.classpath.from(files("${projectDir}/libs/ImsMediaFramework.jar"))
+        }
+    }
+
     sourceSets {
         main {
             jniLibs {
@@ -53,11 +63,9 @@ android {
 
 dependencies {
     if (platformApiJar != null) {
-        // Host-side regression tests need the same private platform API
-        // surface as the platform_apis Soong build. Supply a full platform
-        // stub/classes jar without replacing the checked-in compatibility jar.
         compileOnly files(platformApiJar, 'libs/ImsMediaFramework.jar')
     } else {
+        // 이 부분에서 컴파일 경로에 파일들이 들어가지만 순정 SDK에 순위가 밀리는 현상을 위 🌟 추가 코드로 해결합니다.
         compileOnly fileTree(dir: 'libs', include: '*.jar')
     }
     implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.1'
