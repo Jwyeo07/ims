@@ -22,6 +22,18 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
+      # 🌟 [핵심 추가] 순정 Android 33 SDK의 android.jar를 커스텀 프레임워크 파일로 강제 치환
+      - name: Inject Custom Framework to Android SDK
+        run: |
+          mkdir -p $ANDROID_HOME/platforms/android-33
+          if [ -f "app/libs/ImsMediaFramework.jar" ]; then
+            cp app/libs/ImsMediaFramework.jar $ANDROID_HOME/platforms/android-33/android.jar
+            echo "Successfully hijacked Android 33 SDK stub with ImsMediaFramework.jar."
+          else
+            echo "Error: app/libs/ImsMediaFramework.jar not found!"
+            exit 1
+          fi
+
       - name: Build APK with Gradle
         run: ./gradlew assembleDebug
 
@@ -30,3 +42,4 @@ jobs:
         with:
           name: app-debug
           path: app/build/outputs/apk/debug/app-debug.apk
+
